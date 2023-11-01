@@ -2,3 +2,5 @@ output/*
 
 __pycache__/
 simulator/__pycache__/
+
+.idea/
