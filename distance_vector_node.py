@@ -7,12 +7,19 @@ class Distance_Vector_Node(Node):
     def __init__(self, id):
         super().__init__(id)
         self.distance_vector = {} # destination vertex --> (cost of shortest path, [x, y, z])
-        self.vertices = [self.id] # list of all vertices in graph
+        self.vertices = [] # list of all vertices in graph
         self.last_update = {} # neighbor n --> time last update sent
+
 
     # Return a string
     def __str__(self):
-        return "Rewrite this function to define your node dump printout"
+        i = 'node: ' + str(self.id) + '----------------------\n'
+        r = 'distance vector: ' + str(self.distance_vector) + '\n'
+        v = 'vertices: ' + str(self.vertices) + '\n'
+        n = 'neighbors' + str(self.neighbors) + '\n'
+        return i + r + v + n
+    
+        # return "Rewrite this function to define your node dump printout"
 
     # Fill in this function
     def link_has_been_updated(self, neighbor, latency):
@@ -27,7 +34,13 @@ class Distance_Vector_Node(Node):
             self.neighbors.append(neighbor)
             self.last_update[neighbor] = 0
 
+        if neighbor not in self.vertices:
+            self.vertices.append(neighbor)
+
         self.distance_vector[neighbor] = [latency, [neighbor]]
+
+        print('update about', neighbor, 'received at', self.id)
+        print(str(self))
 
         message = json.dumps({
             'dv': self.distance_vector,
@@ -35,6 +48,8 @@ class Distance_Vector_Node(Node):
             'time': self.get_time()
         })
         self.send_to_neighbors(message)
+
+        
 
     # Fill in this function
     def process_incoming_routing_message(self, m):
@@ -44,11 +59,23 @@ class Distance_Vector_Node(Node):
         sender = message['sender']
         new_dv = message['dv']
 
-        # ignore message if not the last sent from that node
+        # ignore message if not the most recent sent from that node
         if sent_time >= self.last_update[sender]:
+            print('message received at', self.id, 'from', sender)
+            print(str(self))
+
+            self.last_update[sender] = sent_time
+
+            for k in new_dv.keys():
+                if int(k) not in self.vertices:
+                    self.vertices.append(int(k))
+
             changed_dv = self.bellman_ford(new_dv, sender)
+            print('changed', changed_dv)
+            print(str(self))
 
             if changed_dv:
+                print(str(self))
                 message = json.dumps({
                 'dv': self.distance_vector,
                 'sender': self.id,
@@ -76,13 +103,26 @@ class Distance_Vector_Node(Node):
         changed = False
 
         for v in self.vertices:
-            new_path_length = neighbor_dv[v] + self.distance_vector[neighbor_id]
-            
-            if new_path_length < self.distance_vector[v]:
+            if v in neighbor_dv:
+                print(self.vertices)
+                print('self.id', self.id)
+                print('vertex', v)
+                print('neighbor path length', neighbor_dv[v])
+                print('link length', self.distance_vector[neighbor_id])
+
+                new_path_length = neighbor_dv[v] + self.distance_vector[neighbor_id]
                 neighbor_path = copy.deepcopy(neighbor_dv[v][1])
-                new_path = [neighbor_id] + neighbor_path
-                self.distance_vector[v] = [new_path_length, new_path]
-                changed = True
+
+                if v not in self.distance_vector:
+                    self.distance_vector[v] = [new_path_length, [neighbor_id] + neighbor_path]
+                    changed = True
+                
+                elif new_path_length < self.distance_vector[v] and neighbor_id not in neighbor_path:
+                    # deal with infinite looping issue
+                    if neighbor_id not in neighbor_path:
+                        new_path = [neighbor_id] + neighbor_path
+                        self.distance_vector[v] = [new_path_length, new_path]
+                        changed = True
 
         return changed
 
