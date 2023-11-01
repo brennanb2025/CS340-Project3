@@ -102,26 +102,35 @@ class Distance_Vector_Node(Node):
     def bellman_ford(self, neighbor_dv, neighbor_id):
         changed = False
 
-        for v in self.vertices:
-            if v in neighbor_dv:
-                print(self.vertices)
-                print('self.id', self.id)
-                print('vertex', v)
-                print('neighbor path length', neighbor_dv[v])
-                print('link length', self.distance_vector[neighbor_id])
+        print(self.vertices)
+        print(neighbor_dv)
+        # print('neighborid type', type(neighbor_id))
 
-                new_path_length = neighbor_dv[v] + self.distance_vector[neighbor_id]
+        for v in self.vertices:
+            # v = str(v) # this makes it loop infinitely
+            if v in neighbor_dv:
+                # print('making it here')
+                # print(self.vertices)
+                # print('self.id', self.id)
+                # print('vertex', v)
+                # print('neighbor path length', neighbor_dv[v][0])
+                # print('link length', self.distance_vector[neighbor_id])
+
+                new_path_length = neighbor_dv[v][0] + self.distance_vector[neighbor_id][0]
                 neighbor_path = copy.deepcopy(neighbor_dv[v][1])
 
                 if v not in self.distance_vector:
-                    self.distance_vector[v] = [new_path_length, [neighbor_id] + neighbor_path]
+                    print('v not in self.distance_vector')
+                    self.distance_vector[int(v)] = [new_path_length, [neighbor_id] + neighbor_path]
                     changed = True
                 
-                elif new_path_length < self.distance_vector[v] and neighbor_id not in neighbor_path:
+                elif new_path_length < self.distance_vector[v][0] and neighbor_id not in neighbor_path:
+                    print('new path')
                     # deal with infinite looping issue
                     if neighbor_id not in neighbor_path:
+                        print('no loops')
                         new_path = [neighbor_id] + neighbor_path
-                        self.distance_vector[v] = [new_path_length, new_path]
+                        self.distance_vector[int(v)] = [new_path_length, new_path]
                         changed = True
 
         return changed
