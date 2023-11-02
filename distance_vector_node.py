@@ -14,13 +14,11 @@ class Distance_Vector_Node(Node):
         # will need to store neighbor's dvs bc need to recalculate bellman ford when link_has_been_updated too
         # bc when neighboring links change might change what the shortest path is
 
-        # implement poisoned reverse?
-
-
 
         # office hours questions
-        # do we need to implement poisoned reverse?
-        # how do we handle the case of a link being deleted but still being used in other nonneighboring nodes' distance vectors?
+        # how to handle when a link's latency is increased (including when it's deleted)
+        #       how do we handle the case of a link being deleted but still being used in other nonneighboring nodes' distance vectors?
+        #       do we need to implement poisoned reverse?
 
 
     # Return a string
@@ -63,6 +61,12 @@ class Distance_Vector_Node(Node):
             if neighbor not in self.vertices:
                 self.vertices.append(neighbor)
 
+            # if latency is being increased
+            # if neighbor in self.distance_vector and self.distance_vector[neighbor][0] < latency:
+            #     self.distance_vector[neighbor] = [float('inf'), []] # probably won't work
+            # else:
+            # ^ broke path finding but seems like something like this has to happen, otherwise neighbor's paths won't be updated to reflect change
+            
             self.distance_vector[neighbor] = [latency, [neighbor]]
 
         # need to run bellman-ford here
