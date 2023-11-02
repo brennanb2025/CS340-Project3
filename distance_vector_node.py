@@ -10,6 +10,8 @@ class Distance_Vector_Node(Node):
         self.vertices = [] # list of all vertices in graph
         self.last_update = {} # neighbor n --> time last update sent
         self.neighbor_dvs = {} # neighbor n --> [distance vector, time sent]
+        self.cost = {} # neighbor n --> link cost
+        # ^ need this bc shortest path in distance vector not necessarily the neighbor direct link
 
         # will need to store neighbor's dvs bc need to recalculate bellman ford when link_has_been_updated too
         # bc when neighboring links change might change what the shortest path is
@@ -19,6 +21,14 @@ class Distance_Vector_Node(Node):
         # how to handle when a link's latency is increased (including when it's deleted)
         #       how do we handle the case of a link being deleted but still being used in other nonneighboring nodes' distance vectors?
         #       do we need to implement poisoned reverse?
+
+
+        # when receive new dv from another node (or just an update to this node's link)
+        # if link latency has changed, need to update the length of all paths in own distance vector to represent accurate new length
+        # BEFORE bellman ford is used --> routes might not be the shortest anymore, but they'll be updated by the algorithm to be accurate
+        # just have to make sure info used in bellman for accurately represents the current state of the network
+
+        self.distance_vector[self.id] = [0, []]
 
 
     # Return a string
@@ -36,17 +46,16 @@ class Distance_Vector_Node(Node):
         # latency = -1 if delete a link
 
         if latency == -1:
+            print('link deleted between', self.id, 'and', neighbor)
             self.neighbors.remove(neighbor)
 
-            # self.distance_vector.pop(neighbor) # this might be an issue - come back
-            # ^ I think we shouldn't do this bc what if still reachable through another node? not sure how to handle - I think make distance inf when deleted bc unreachable
-            # how to handle existing shortest paths in self.distance_vector that used this link?
-            # ^ set all paths in current self.dv that have that node as the next hop to inf -- will be updated when other nodes send responses
             self.distance_vector[neighbor] = [float('inf'), []]
+            self.cost[neighbor] = float('inf')
 
-            # self.last_update.pop(neighbor) # another potential issue
-            # ^ not sure about this one, should potentially remove from the neighbor_dvs list? doesn't really matter bc will be gone from self.neighbors
-            # just leave in for now
+            # set length of all paths in dv that used this link to inf bc link no longer exists so neither do those paths
+            for k in self.distance_vector.keys():
+                    if self.distance_vector[k][1] != [] and self.distance_vector[k][1][0] == neighbor:
+                        self.distance_vector[k] = [float('inf'), []]
 
         else:
 
@@ -61,13 +70,28 @@ class Distance_Vector_Node(Node):
             if neighbor not in self.vertices:
                 self.vertices.append(neighbor)
 
-            # if latency is being increased
-            # if neighbor in self.distance_vector and self.distance_vector[neighbor][0] < latency:
-            #     self.distance_vector[neighbor] = [float('inf'), []] # probably won't work
-            # else:
-            # ^ broke path finding but seems like something like this has to happen, otherwise neighbor's paths won't be updated to reflect change
             
+            if neighbor not in self.distance_vector:
+                self.distance_vector[neighbor] = [latency, [neighbor]]
+
+            
+            old_latency = self.distance_vector[neighbor][0]
+            path_length_change = abs(latency - old_latency) # amount to add to all paths that use this link
+            print('path length change', path_length_change)
+            print('latency', latency)
+            print('old latency', old_latency)
+            print('costs', self.cost)
+            print('dv', self.distance_vector)
+
             self.distance_vector[neighbor] = [latency, [neighbor]]
+            self.cost[neighbor] = latency
+
+            for k in self.distance_vector.keys():
+                if k != neighbor:
+                    if self.distance_vector[k][1] != [] and self.distance_vector[k][1][0] == neighbor:
+                        old_length = self.distance_vector[k][0]
+                        self.distance_vector[k][0] = old_length + path_length_change
+            
 
         # need to run bellman-ford here
         self.bellman_ford()
@@ -88,8 +112,6 @@ class Distance_Vector_Node(Node):
     # Fill in this function
     def process_incoming_routing_message(self, m):
 
-        # when receive new dv should first update list of all vertices and add them to self.distance_vector with length inf if not there yet
-
         message = json.loads(m)
         sent_time = message['time']
         sender = message['sender']
@@ -101,16 +123,30 @@ class Distance_Vector_Node(Node):
             print('new_dv', new_dv)
             print(str(self))
 
-            # self.last_update[sender] = sent_time
 
             self.neighbor_dvs[sender] = [new_dv, sent_time]
 
             for k in new_dv.keys():
                 if int(k) not in self.vertices:
                     self.vertices.append(int(k))
-            # ^ don't need, can handle in bellman ford function (loop by neighbor_dvs and then by nodes contained in them, if not in self.dv then add)
+
+
+            # go through and update all lengths to be accurate using newly received dv
+            # all routes where next hop is the node that just sent the new dv need to be recalculated using cost[that node] + new_dv[that dest]
+            for k in self.distance_vector.keys():
+                if str(k) in new_dv and self.distance_vector[k][1] != [] and self.distance_vector[k][1][0] == sender:
+                    print(new_dv[str(k)][0])
+                    print(self.cost[sender])
+                    new_length = new_dv[str(k)][0] + self.cost[sender]
+                    self.distance_vector[k][0] = new_length
+
+            print('updated self.dv', self.distance_vector)
+
 
             changed_dv = self.bellman_ford()
+            # changed_dv = self.bellman_ford_single(new_dv, sender)
+
+
             print('changed', changed_dv)
             print(str(self))
 
@@ -123,7 +159,6 @@ class Distance_Vector_Node(Node):
                 'time': self.get_time()
                 })
                 self.send_to_neighbors(message)
-
 
     # Return a neighbor, -1 if no path to destination
     def get_next_hop(self, destination):
@@ -180,33 +215,99 @@ class Distance_Vector_Node(Node):
                 # print('here')
                 self.distance_vector[v] = [float('inf'), []]
 
+            if v == self.id:
+                continue
+
             for n in self.neighbors:
                 # print('n', n)
                 
-                if n != v: # ? I think this will work
-                    neighbor_dv = self.neighbor_dvs[n][0]
+            
+                neighbor_dv = self.neighbor_dvs[n][0]
 
-                    # print('neighbor_dv', neighbor_dv)
-                    # if neighbor_dv != None and v in neighbor_dv:
+                # print('neighbor_dv', neighbor_dv)
+                # if neighbor_dv != None and v in neighbor_dv:
 
-                    if neighbor_dv == None or str(v) not in neighbor_dv:
-                        length_through_n = float('inf')
-                    else:
-                        length_through_n = neighbor_dv[str(v)][0]
+                if neighbor_dv == None or str(v) not in neighbor_dv:
+                    length_through_n = float('inf')
+                else:
+                    length_through_n = neighbor_dv[str(v)][0]
 
-                    length_to_n = self.distance_vector[n][0]
+                length_to_n = self.cost[n]
 
-                    
+                cur_shortest_length = self.distance_vector[v][0]
 
-                    cur_shortest_length = self.distance_vector[v][0]
+                if length_through_n + length_to_n < cur_shortest_length:
+                    path_through_n = copy.deepcopy(neighbor_dv[str(v)][1])
 
-                    if length_through_n + length_to_n < cur_shortest_length:
-                        path_through_n = copy.deepcopy(neighbor_dv[str(v)][1])
+                    if self.id not in path_through_n:
                         new_path = [n] + path_through_n
+                        print('path through n', n, path_through_n)
 
                         self.distance_vector[v] = [length_through_n + length_to_n, new_path]
+                        print('after change:', self.distance_vector)
                         
                         changed = True
-                    
+                
         return changed
+    
+    def bellman_ford_single(self, neighbor_dv, n):
+        # for v in self.vertices:
+        #     # v = str(v) # this makes it loop infinitely
+        #     if v in neighbor_dv:
+        #         # print('making it here')
+        #         # print(self.vertices)
+        #         # print('self.id', self.id)
+        #         # print('vertex', v)
+        #         # print('neighbor path length', neighbor_dv[v][0])
+        #         # print('link length', self.distance_vector[neighbor_id])
 
+        #         new_path_length = neighbor_dv[v][0] + self.distance_vector[neighbor_id][0]
+        #         neighbor_path = copy.deepcopy(neighbor_dv[v][1])
+
+        #         if v not in self.distance_vector:
+        #             print('v not in self.distance_vector')
+        #             self.distance_vector[int(v)] = [new_path_length, [neighbor_id] + neighbor_path]
+        #             changed = True
+                
+        #         elif new_path_length < self.distance_vector[v][0] and neighbor_id not in neighbor_path:
+        #             print('new path')
+        #             # deal with infinite looping issue
+        #             if neighbor_id not in neighbor_path:
+        #                 print('no loops')
+        #                 new_path = [neighbor_id] + neighbor_path
+        #                 self.distance_vector[int(v)] = [new_path_length, new_path]
+        #                 changed = True
+
+        changed = False
+
+        for v in self.vertices:
+            if v not in self.distance_vector:
+                # print('here')
+                self.distance_vector[v] = [float('inf'), []]
+
+            if v == self.id:
+                continue
+
+        if str(v) not in neighbor_dv:
+            length_through_n = float('inf')
+        else:
+            length_through_n = neighbor_dv[str(v)][0]
+
+        length_to_n = self.cost[n]
+
+        cur_shortest_length = self.distance_vector[v][0]
+
+        if length_through_n + length_to_n < cur_shortest_length:
+            path_through_n = copy.deepcopy(neighbor_dv[str(v)][1])
+
+            if self.id not in path_through_n:
+                new_path = [n] + path_through_n
+                print('path through n', n, path_through_n)
+
+                self.distance_vector[v] = [length_through_n + length_to_n, new_path]
+                print('after change:', self.distance_vector)
+                
+                changed = True
+                
+        return changed
+            
