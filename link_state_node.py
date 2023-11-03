@@ -167,12 +167,15 @@ class Link_State_Node(Node):
             curr = self.routing_table[destination]
             # print('curr:', curr)
             prev = destination
-            while curr != self.id:
+            while curr != self.id and curr != None:
                 prev = curr
                 curr = self.routing_table[prev]
 
             # print('next step from node ' + str(self.id) + ': ' + str(prev))
             # print(self.routing_table)
+            if curr == None:
+                return -1
+            
             return prev
             
         else:

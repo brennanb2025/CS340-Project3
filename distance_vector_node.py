@@ -8,7 +8,6 @@ class Distance_Vector_Node(Node):
         super().__init__(id)
         self.distance_vector = {} # destination vertex --> (cost of shortest path, [x, y, z])
         self.vertices = [] # list of all vertices in graph
-        self.last_update = {} # neighbor n --> time last update sent
         self.neighbor_dvs = {} # neighbor n --> [distance vector, time sent]
         self.cost = {} # neighbor n --> link cost
         # ^ need this bc shortest path in distance vector not necessarily the neighbor direct link
@@ -130,28 +129,43 @@ class Distance_Vector_Node(Node):
                 if int(k) not in self.vertices:
                     self.vertices.append(int(k))
 
+            changed_dv = False
 
             # go through and update all lengths to be accurate using newly received dv
             # all routes where next hop is the node that just sent the new dv need to be recalculated using cost[that node] + new_dv[that dest]
             for k in self.distance_vector.keys():
                 if str(k) in new_dv and self.distance_vector[k][1] != [] and self.distance_vector[k][1][0] == sender:
+                    if self.id in new_dv[str(k)][1]:
+                        self.distance_vector[k] = [float('inf'), []]
+                        changed_dv = True
+                        continue
+
+
+                    previous_length = self.distance_vector[k][0]
                     print(new_dv[str(k)][0])
                     print(self.cost[sender])
+
                     new_length = new_dv[str(k)][0] + self.cost[sender]
-                    self.distance_vector[k][0] = new_length
+
+                    
+                    
+                    if new_length != previous_length:
+                        changed_dv = True
+                        self.distance_vector[k][0] = new_length
 
             print('updated self.dv', self.distance_vector)
 
-
-            changed_dv = self.bellman_ford()
+            bellman_ford_changed = self.bellman_ford()
             # changed_dv = self.bellman_ford_single(new_dv, sender)
 
 
             print('changed', changed_dv)
+            print('bellman ford changed', bellman_ford_changed)
             print(str(self))
 
             # if self.distance_vector was changed, send out to neighbors
-            if changed_dv:
+            if bellman_ford_changed:
+                print('sending message to', self.neighbors, 'from', self.id)
                 print(str(self))
                 message = json.dumps({
                 'dv': self.distance_vector,
@@ -173,35 +187,6 @@ class Distance_Vector_Node(Node):
         changed = False
 
         print(self.vertices)
-        # print(neighbor_dv)
-        # print('neighborid type', type(neighbor_id))
-
-        # for v in self.vertices:
-        #     # v = str(v) # this makes it loop infinitely
-        #     if v in neighbor_dv:
-        #         # print('making it here')
-        #         # print(self.vertices)
-        #         # print('self.id', self.id)
-        #         # print('vertex', v)
-        #         # print('neighbor path length', neighbor_dv[v][0])
-        #         # print('link length', self.distance_vector[neighbor_id])
-
-        #         new_path_length = neighbor_dv[v][0] + self.distance_vector[neighbor_id][0]
-        #         neighbor_path = copy.deepcopy(neighbor_dv[v][1])
-
-        #         if v not in self.distance_vector:
-        #             print('v not in self.distance_vector')
-        #             self.distance_vector[int(v)] = [new_path_length, [neighbor_id] + neighbor_path]
-        #             changed = True
-                
-        #         elif new_path_length < self.distance_vector[v][0] and neighbor_id not in neighbor_path:
-        #             print('new path')
-        #             # deal with infinite looping issue
-        #             if neighbor_id not in neighbor_path:
-        #                 print('no loops')
-        #                 new_path = [neighbor_id] + neighbor_path
-        #                 self.distance_vector[int(v)] = [new_path_length, new_path]
-        #                 changed = True
 
 
         # problems:
@@ -223,6 +208,7 @@ class Distance_Vector_Node(Node):
                 
             
                 neighbor_dv = self.neighbor_dvs[n][0]
+                print('neighbor', n, 'dv', neighbor_dv)
 
                 # print('neighbor_dv', neighbor_dv)
                 # if neighbor_dv != None and v in neighbor_dv:
@@ -233,6 +219,7 @@ class Distance_Vector_Node(Node):
                     length_through_n = neighbor_dv[str(v)][0]
 
                 length_to_n = self.cost[n]
+                # length_to_n = self.distance_vector[n][0] ### seems like it should be this what if direct link isn't shortest path to neighbor?
 
                 cur_shortest_length = self.distance_vector[v][0]
 
@@ -241,6 +228,8 @@ class Distance_Vector_Node(Node):
 
                     if self.id not in path_through_n:
                         new_path = [n] + path_through_n
+                        # new_path = self.distance_vector[n][1] + path_through_n
+
                         print('path through n', n, path_through_n)
 
                         self.distance_vector[v] = [length_through_n + length_to_n, new_path]
@@ -249,65 +238,3 @@ class Distance_Vector_Node(Node):
                         changed = True
                 
         return changed
-    
-    def bellman_ford_single(self, neighbor_dv, n):
-        # for v in self.vertices:
-        #     # v = str(v) # this makes it loop infinitely
-        #     if v in neighbor_dv:
-        #         # print('making it here')
-        #         # print(self.vertices)
-        #         # print('self.id', self.id)
-        #         # print('vertex', v)
-        #         # print('neighbor path length', neighbor_dv[v][0])
-        #         # print('link length', self.distance_vector[neighbor_id])
-
-        #         new_path_length = neighbor_dv[v][0] + self.distance_vector[neighbor_id][0]
-        #         neighbor_path = copy.deepcopy(neighbor_dv[v][1])
-
-        #         if v not in self.distance_vector:
-        #             print('v not in self.distance_vector')
-        #             self.distance_vector[int(v)] = [new_path_length, [neighbor_id] + neighbor_path]
-        #             changed = True
-                
-        #         elif new_path_length < self.distance_vector[v][0] and neighbor_id not in neighbor_path:
-        #             print('new path')
-        #             # deal with infinite looping issue
-        #             if neighbor_id not in neighbor_path:
-        #                 print('no loops')
-        #                 new_path = [neighbor_id] + neighbor_path
-        #                 self.distance_vector[int(v)] = [new_path_length, new_path]
-        #                 changed = True
-
-        changed = False
-
-        for v in self.vertices:
-            if v not in self.distance_vector:
-                # print('here')
-                self.distance_vector[v] = [float('inf'), []]
-
-            if v == self.id:
-                continue
-
-        if str(v) not in neighbor_dv:
-            length_through_n = float('inf')
-        else:
-            length_through_n = neighbor_dv[str(v)][0]
-
-        length_to_n = self.cost[n]
-
-        cur_shortest_length = self.distance_vector[v][0]
-
-        if length_through_n + length_to_n < cur_shortest_length:
-            path_through_n = copy.deepcopy(neighbor_dv[str(v)][1])
-
-            if self.id not in path_through_n:
-                new_path = [n] + path_through_n
-                print('path through n', n, path_through_n)
-
-                self.distance_vector[v] = [length_through_n + length_to_n, new_path]
-                print('after change:', self.distance_vector)
-                
-                changed = True
-                
-        return changed
-            
