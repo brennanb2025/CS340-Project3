@@ -36,7 +36,8 @@ class Distance_Vector_Node(Node):
         r = 'distance vector: ' + str(self.distance_vector) + '\n'
         v = 'vertices: ' + str(self.vertices) + '\n'
         n = 'neighbors' + str(self.neighbors) + '\n'
-        return i + r + v + n
+        ndvs = 'neighbor dvs' + str(self.neighbor_dvs) + '\n'
+        return i + r + v + n + ndvs
     
         # return "Rewrite this function to define your node dump printout"
 
@@ -75,7 +76,7 @@ class Distance_Vector_Node(Node):
 
             
             old_latency = self.distance_vector[neighbor][0]
-            path_length_change = abs(latency - old_latency) # amount to add to all paths that use this link
+            path_length_change = latency - old_latency # amount to add to all paths that use this link
             # print('path length change', path_length_change)
             # print('latency', latency)
             # print('old latency', old_latency)
@@ -221,12 +222,25 @@ class Distance_Vector_Node(Node):
                 else:
                     length_through_n = neighbor_dv[str(v)][0]
 
-                if self.cost[n] <= self.distance_vector[n][0]:
-                    length_to_n = self.cost[n]
-                    path_to_n = [n]
-                else:
-                    length_to_n = self.distance_vector[n][0] ### seems like it should be this bc what if direct link isn't shortest path to neighbor?
-                    path_to_n = self.distance_vector[n][1]
+                # print('node', self.id, 'cost of direct link to', n, ':', self.cost[n])
+                # print('node', self.id, 'shortest path to ', n, ':', self.distance_vector[n])
+                # if self.cost[n] < self.distance_vector[n][0]:
+                #     print('not the same -------------------------------------------------------')
+
+
+                if self.distance_vector[n][0] == float('inf'):    
+                    self.distance_vector[n] = [self.cost[n], [n]]
+                    changed = True
+
+                # if self.cost[n] <= self.distance_vector[n][0]:
+                #     length_to_n = self.cost[n]
+                #     path_to_n = [n]
+                # else:
+                #     length_to_n = self.distance_vector[n][0] ### seems like it should be this bc what if direct link isn't shortest path to neighbor?
+                #     path_to_n = self.distance_vector[n][1]
+
+                length_to_n = self.distance_vector[n][0]
+                path_to_n = self.distance_vector[n][1]
 
                 cur_shortest_length = self.distance_vector[v][0]
 
