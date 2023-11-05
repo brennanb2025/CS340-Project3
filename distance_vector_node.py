@@ -249,6 +249,8 @@ class Distance_Vector_Node(Node):
                 # if self.cost[n] < self.distance_vector[n][0]:
                 #     print('not the same -------------------------------------------------------')
 
+                if self.distance_vector[n][0] == float('inf'):
+                    self.distance_vector[n] = [self.cost[n], [n]]
 
                 length_to_n = self.distance_vector[n][0]
                 path_to_n = self.distance_vector[n][1]
