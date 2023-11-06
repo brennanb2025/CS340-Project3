@@ -90,8 +90,13 @@ class Distance_Vector_Node(Node):
             for k in self.distance_vector.keys():
                 if k != neighbor:
                     if self.distance_vector[k][1] != [] and self.distance_vector[k][1][0] == neighbor:
+                        if self.id == 2 and k == 6 and self.distance_vector[k][0] == 11:
+                            if old_length + path_length_change == 9:
+                                print('reduced here')
+                                print(neighbor, latency)
                         old_length = self.distance_vector[k][0]
                         self.distance_vector[k][0] = old_length + path_length_change
+                        
             
 
         # need to run bellman-ford here
@@ -155,10 +160,19 @@ class Distance_Vector_Node(Node):
                     # print(new_dv[str(k)][0])
                     # print(self.cost[sender])
 
-                    cost_to_sender = min(self.cost[sender], self.distance_vector[sender][0])
+                    # cost_to_sender = min(self.cost[sender], self.distance_vector[sender][0])
+                    cost_to_sender = self.cost[sender]
 
                     # new_length = new_dv[str(k)][0] + self.cost[sender]
                     new_length = new_dv[str(k)][0] + cost_to_sender
+
+                    if self.id == 2 and k == 6:
+                        if previous_length == 11 and new_length == 9:
+                            print('reduced here (incoming message)')
+                            print('cost to sender', cost_to_sender)
+                            print('new_dv', new_dv)
+                            print('sender', sender)
+                            print(self.distance_vector)
 
                     # if is_17:
                     #     print('destination', k, 'old length', previous_length, 'new length', new_length)
@@ -208,6 +222,11 @@ class Distance_Vector_Node(Node):
 
     def bellman_ford(self):
         changed = False
+
+        # is_2 = False
+        # if self.id == 2:
+        #     is_2 = True
+
         # print('at node', self.id)
 
         # print(self.vertices)
@@ -218,7 +237,8 @@ class Distance_Vector_Node(Node):
         # ^ how to fix this? or is it fine and just check that v is in neighbor_dv
         # what if v == n
         for v in self.vertices:
-            # print('v', v)
+            # if is_2:
+            #     print('v', v)
 
             if v not in self.distance_vector:
                 # print('here')
@@ -230,7 +250,8 @@ class Distance_Vector_Node(Node):
             # print('path to destination', v,'--------------------------')
 
             for n in self.neighbors:
-                # print('n', n)
+                # if is_2:
+                #     print('n', n)
                 
             
                 neighbor_dv = self.neighbor_dvs[n][0]
@@ -257,16 +278,24 @@ class Distance_Vector_Node(Node):
 
                 cur_shortest_length = self.distance_vector[v][0]
 
-                # print('comparing path through node', n, 'length', length_through_n + length_to_n, 'with current length', cur_shortest_length)
-                # print(length_through_n, '+', length_to_n)
-                # print('neighbordv', neighbor_dv)
+                # if is_2:
+                #     print('comparing path through node', n, 'length', length_through_n + length_to_n, 'with current length', cur_shortest_length)
+                #     print(length_through_n, '+', length_to_n)
+                #     print('neighbordv', neighbor_dv)
+                #     print('path to n', path_to_n)
+                #     print('current path', self.distance_vector[v][1])
 
                 if length_through_n + length_to_n < cur_shortest_length:
                     path_through_n = copy.deepcopy(neighbor_dv[str(v)][1])
+                    # if is_2:
+                    #     print('path_through_n', path_through_n)
 
                     if self.id not in path_through_n:
                         # new_path = [n] + path_through_n
                         new_path = path_to_n + path_through_n
+                        # if is_2 and v == 6 and new_path == [5, 6]:
+                        #     print('changed to [5,6] here')
+                        #     print('length', length_through_n + length_to_n)
 
                         # print('path through n', n, path_through_n)
 
