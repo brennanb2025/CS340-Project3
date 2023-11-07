@@ -10,6 +10,7 @@ class Distance_Vector_Node(Node):
         self.vertices = [] # list of all vertices in graph
         self.neighbor_dvs = {} # neighbor n --> [distance vector, time sent]
         self.cost = {} # neighbor n --> link cost
+        self.seq = 0
   
         self.distance_vector[self.id] = [0, []]
 
@@ -50,7 +51,7 @@ class Distance_Vector_Node(Node):
                 self.neighbors.append(neighbor)
                 # self.last_update[neighbor] = 0
 
-                self.neighbor_dvs[neighbor] = [None, 0] # intialize so in table at least
+                self.neighbor_dvs[neighbor] = [None, -1] # intialize so in table at least
                 
                 # should store None in neighbor_dvs and then check for this in bellman_ford
 
@@ -72,9 +73,10 @@ class Distance_Vector_Node(Node):
             message = json.dumps({
                 'dv': self.distance_vector,
                 'sender': self.id,
-                'time': self.get_time()
+                'time': self.seq
             })
             self.send_to_neighbors(message)
+            self.seq+=1
 
         
 
@@ -107,16 +109,14 @@ class Distance_Vector_Node(Node):
                 message = json.dumps({
                 'dv': self.distance_vector,
                 'sender': self.id,
-                'time': self.get_time()
+                'time': self.seq
                 })
 
 
-                if len(self.vertices) < 5:
-                    self.send_to_neighbors(message)
-                else:
-                    for n in self.neighbors:
-                        if n != sender:
-                            self.send_to_neighbor(n, message)
+                for n in self.neighbors:
+                    if n != sender:
+                        self.send_to_neighbor(n, message)
+                self.seq+=1
                 # self.send_to_neighbors(message)
 
     # Return a neighbor, -1 if no path to destination
@@ -167,7 +167,7 @@ class Distance_Vector_Node(Node):
                 cur_shortest_length = self.distance_vector[v][0]
 
 
-                if length_through_n <= cur_shortest_length:
+                if length_through_n < cur_shortest_length:
 
                     path_to_n = self.distance_vector[n][1]
                     path_from_n =neighbor_dv[str(v)][1]
